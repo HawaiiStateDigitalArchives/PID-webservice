@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+    <head>
+        <title>Error</title>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    </head>
+    <body>          
+{<br/>
+"Status" : "<div th:remove="tag" th:text="${status}"></div>",<br/>
+"Exception" : "<div th:remove="tag" th:text="${exception}"></div>",<br/>
+"Messages" : "<div th:remove="tag" th:text="${message}"></div>"<br/>
+}               
+    </body>
+</html>

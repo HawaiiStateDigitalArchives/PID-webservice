@@ -1,0 +1,25 @@
+# Maven
+target/
+
+# Minter specific
+**/testWriteDefaultSetting.properties
+
+# Resolver specific 
+doc/
+
+# Eclipse
+.classpath
+.project
+.settings
+
+# Netbeans
+**/nb-configuration.xml
+**/nbactions.xml
+
+# Database
+*.lck
+*.script
+Minter/*.properties
+Minter/*.log
+Resolver/*.properties
+Resolver/*.log
