@@ -18,8 +18,10 @@
 package com.hida.model;
 
 import java.security.SecureRandom;
+import java.util.Iterator;
 import java.util.Set;
 import java.util.LinkedHashSet;
+import java.util.stream.LongStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,20 +74,30 @@ public abstract class IdGenerator {
         if (MaxPermutation < amount) {
             throw new NotEnoughPermutationsException(MaxPermutation, amount);
         }
-        // generate ids        
+        if(amount < 0){
+            throw new IllegalArgumentException("amount cannot be negative");
+        }
+
+        // create sets to guarantee unique membership           
+        Set<Long> longSet = new LinkedHashSet<>();
         Set<Pid> pidSet = new LinkedHashSet<>();
 
-        // randomly generate pids using a random number generator
-        for (int i = 0; i < amount; i++) {
-            long value = Math.abs(Rng.nextLong()) % MaxPermutation;
-            Pid pid = new Pid(this.longToName(value));
+        // create a LongStream of size amount, bound by [0, maxPermutation_)                
+        LongStream longStream = Rng.longs(amount, 0, MaxPermutation);
 
-            // create pid and add it to the set
-            while (!pidSet.add(pid)) {
-                this.incrementPid(pid);
+        // iterate through every member of the stream
+        Iterator<Long> longIter = longStream.iterator();
+        while (longIter.hasNext()) {
+
+            // try to add the value to the set, if it can't be added increment it
+            long value = longIter.next();
+            while (!longSet.add(value)) {
+                value = (value + 1) % MaxPermutation;
             }
 
-            LOGGER.trace("Generated Auto Random ID: {}", pid);
+            // if a value can be added to longSet then it can be added to PidSet
+            Pid pid = new Pid(longToName(value));
+            pidSet.add(pid);
         }
 
         return pidSet;

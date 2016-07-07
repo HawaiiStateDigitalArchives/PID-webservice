@@ -256,7 +256,7 @@ public class CustomIdGeneratorTest {
      * @param amount The number of PIDs to be created
      */
     @Test(dataProvider = "prefix")
-    public void testSequentialMintPrefixWithStartingValue(String prefix, boolean sansVowel, 
+    public void testSequentialMintPrefixWithStartingValue(String prefix, boolean sansVowel,
             String charMap, int amount) {
         LOGGER.debug("inside testSequentialMintPrefix");
 
@@ -442,8 +442,8 @@ public class CustomIdGeneratorTest {
     }
 
     /**
-     * Tests to see if randomMint will through NotEnoughPermutation exception
-     * when the amount exceeds the total permutations
+     * Tests to see if randomMint will throw NotEnoughPermutation exception when
+     * the amount exceeds the total permutations
      */
     @Test(expectedExceptions = NotEnoughPermutationsException.class)
     public void testRandomNotEnoughPermutationException() {
@@ -456,17 +456,16 @@ public class CustomIdGeneratorTest {
     }
 
     /**
-     * Tests to see if randomMint will through NotEnoughPermutation exception
-     * when the amount is negative
+     * Tests to see if randomMint will throw IllegalArgumentException when the
+     * amount is negative
      */
-    @Test
+    @Test(expectedExceptions = IllegalArgumentException.class)
     public void testRandomMintNegativeAmount() {
         LOGGER.debug("inside testRandomMintNegativeAmount");
 
         IdGenerator minter = new CustomIdGenerator("", true, "ddddd");
 
         Set<Pid> randomSet = minter.randomMint(-1);
-        Assert.assertEquals(randomSet.isEmpty(), true);
     }
 
     /**
