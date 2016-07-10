@@ -440,16 +440,15 @@ public class AutoIdGeneratorTest {
     }
 
     /**
-     * Tests to see if sequentialMint will through NotEnoughPermutation
-     * exception when the amount is negative
+     * Tests to see if sequentialMint will throw IllegalArgumentException when
+     * the amount is negative
      */
-    @Test
+    @Test(expectedExceptions = IllegalArgumentException.class)
     public void testSequentialMintNegativeAmount() {
         IdGenerator minter = new AutoIdGenerator("", Token.DIGIT, 5);
         long total = minter.getMaxPermutation();
 
         Set<Pid> sequentialSet = minter.sequentialMint(-1);
-        Assert.assertEquals(sequentialSet.isEmpty(), true);
     }
 
     /**

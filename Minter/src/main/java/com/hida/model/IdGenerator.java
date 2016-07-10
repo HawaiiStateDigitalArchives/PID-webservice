@@ -98,30 +98,7 @@ public abstract class IdGenerator {
      * @return A set of Pids
      */
     public Set<Pid> sequentialMint(long amount) {
-        // checks to see if its possible to produce or add requested amount of
-        if (MaxPermutation < amount) {
-            throw new NotEnoughPermutationsException(MaxPermutation, amount);
-        }
-
-        // create a set to contain Pids
-        Set<Pid> pidSet = new LinkedHashSet<>();
-
-        long ordinal = 0;
-        Pid basePid = new Pid(this.longToName(ordinal));
-        for (int i = 0; i < amount; i++) {
-
-            // copy the Name of basePid into a new Pid instance
-            Pid pid = new Pid(basePid.getName());
-
-            // add the pid to the set
-            pidSet.add(pid);
-
-            // increment the base Pid
-            this.incrementPid(basePid);
-
-            LOGGER.trace("Generated Custom Sequential ID: {}", pid);
-        }
-        return pidSet;
+        return sequentialMint(amount, 0);
     }
 
     /**
@@ -135,24 +112,24 @@ public abstract class IdGenerator {
         if (MaxPermutation < amount) {
             throw new NotEnoughPermutationsException(MaxPermutation, amount);
         }
+        if (MaxPermutation < startingValue) {
+            throw new NotEnoughPermutationsException(MaxPermutation, startingValue);
+        }
+        if(amount < 0){
+            throw new IllegalArgumentException("amount cannot be negative");
+        }
+        if(startingValue < 0){
+            throw new IllegalArgumentException("starting value cannot be negative");
+        }
 
         // create a set to contain Pids
         Set<Pid> pidSet = new LinkedHashSet<>();
-
-        long ordinal = startingValue;
-        Pid basePid = new Pid(this.longToName(ordinal));
         for (int i = 0; i < amount; i++) {
+            Pid newPid = new Pid(longToName(startingValue));
+            pidSet.add(newPid);
+            startingValue = (startingValue + 1) % MaxPermutation;
 
-            // copy the Name of basePid into a new Pid instance
-            Pid pid = new Pid(basePid.getName());
-
-            // add the pid to the set
-            pidSet.add(pid);
-
-            // increment the base Pid
-            this.incrementPid(basePid);
-
-            LOGGER.trace("Generated Custom Sequential ID: {}", pid);
+            LOGGER.trace("Generated Custom Sequential ID: {}", newPid);
         }
 
         return pidSet;

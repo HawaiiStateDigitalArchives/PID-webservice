@@ -256,7 +256,7 @@ public class CustomIdGeneratorTest {
      * @param amount The number of PIDs to be created
      */
     @Test(dataProvider = "prefix")
-    public void testSequentialMintPrefixWithStartingValue(String prefix, boolean sansVowel, 
+    public void testSequentialMintPrefixWithStartingValue(String prefix, boolean sansVowel,
             String charMap, int amount) {
         LOGGER.debug("inside testSequentialMintPrefix");
 
@@ -470,10 +470,10 @@ public class CustomIdGeneratorTest {
     }
 
     /**
-     * Tests to see if sequentialMint will through NotEnoughPermutation
-     * exception when the amount is negative
+     * Tests to see if sequentialMint will throw IllegalArgumentException when
+     * the amount is negative
      */
-    @Test
+    @Test(expectedExceptions = IllegalArgumentException.class)
     public void testSequentialMintNegativeAmount() {
         LOGGER.debug("inside testSequentialMintNegativeAmount");
 
@@ -481,7 +481,6 @@ public class CustomIdGeneratorTest {
         long total = minter.getMaxPermutation();
 
         Set<Pid> sequentialSet = minter.sequentialMint(-1);
-        Assert.assertEquals(sequentialSet.isEmpty(), true);
     }
 
     /**
