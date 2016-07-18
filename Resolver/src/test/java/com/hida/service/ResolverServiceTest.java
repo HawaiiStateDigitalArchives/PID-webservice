@@ -58,7 +58,7 @@ public class ResolverServiceTest {
      * Tests to see if the URL of a given Citation entity is properly retrieved
      */
     @Test
-    public void testRetrieveUrl() {
+    public void testRetrieveUrl() throws Exception {
         String purl = "purl";
         String url = "url";
         Citation entity = new Citation(purl);
@@ -76,7 +76,7 @@ public class ResolverServiceTest {
      * Tests to see if a Citation entity can be edited
      */
     @Test
-    public void testEditUrl() {
+    public void testEditUrl() throws Exception {
         Citation entity = new Citation();
         when(citationRepo_.findOne(any(String.class))).thenReturn(entity);
 
@@ -90,7 +90,7 @@ public class ResolverServiceTest {
      * Tests to see if a Citation entity can be deleted
      */
     @Test
-    public void testDeleteCitation() {
+    public void testDeleteCitation() throws Exception {
         Citation entity = new Citation();
         when(citationRepo_.findOne(any(String.class))).thenReturn(entity);
         doNothing().when(citationRepo_).delete(entity);
@@ -103,7 +103,7 @@ public class ResolverServiceTest {
      * Tests to see if a Citation entity is retrievable
      */
     @Test
-    public void testRetrieveCitation() {
+    public void testRetrieveCitation() throws Exception {
         Citation citation = new Citation();
         String purl = "purl";
         citation.setPurl(purl);
@@ -119,8 +119,9 @@ public class ResolverServiceTest {
      * Tests to see if a Citation object can be persisted
      */
     @Test
-    public void testInsertCitation() {
+    public void testInsertCitation() throws Exception {
         Citation purl = new Citation();
+        purl.setPurl("testPurl");
         when(citationRepo_.save(purl)).thenReturn(null);
 
         service_.insertCitation(purl);
