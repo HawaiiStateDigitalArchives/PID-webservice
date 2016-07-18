@@ -45,7 +45,7 @@ public class PidTest {
      * @param setting The desired setting used to create a Pid
      */
     public void testPrefix(String name, Setting setting) {
-        String prefix = setting.getPrefix();
+        String prefix = setting.getPrefix();        
 
         Assert.assertTrue(name + ", testing prefix: " + prefix, name.startsWith(prefix));
     }
@@ -151,4 +151,25 @@ public class PidTest {
     public void testOrder(Pid previous, Pid next) {
         Assert.assertEquals(-1, previous.compareTo(next));
     }      
+    
+    public void testAll(String name, DefaultSetting setting) {
+        // universal tests
+        this.testPrepend(name, setting);
+        
+        // remove prepend from name
+        int prependLength = setting.getPrepend().length();
+        name = name.substring(prependLength);
+        
+        this.testPrefix(name, setting);
+        this.testRootLength(name, setting);
+        
+        // tests specific for isAuto
+        if (setting.isAuto()) {
+            this.testTokenType(name, setting);                        
+        }
+        else {
+            this.testCharMap(name, setting);
+        }
+                
+    }
 }

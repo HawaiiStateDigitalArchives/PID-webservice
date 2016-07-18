@@ -27,8 +27,6 @@ import com.hida.model.Token;
 import com.hida.model.UsedSetting;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
 import java.util.Properties;
@@ -44,6 +42,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.MockitoAnnotations;
+import org.mockito.Spy;
 import org.testng.Assert;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeClass;
@@ -70,6 +69,9 @@ public class MinterServiceTest {
 
     @Mock
     private UsedSettingRepository usedSettingRepo_;
+
+    @Spy
+    private PropertiesLoaderService propertiesService_;
 
     @InjectMocks
     private MinterService minterService_;
@@ -419,7 +421,7 @@ public class MinterServiceTest {
      */
     @AfterTest
     private void resetTestReadDefaultProperties() throws Exception {
-        DefaultSetting setting = readPropertiesFile(TEST_FILE);
+        DefaultSetting setting = propertiesService_.readPropertiesFile(TEST_FILE);
 
         Properties prop = new Properties();
         ClassLoader loader = Thread.currentThread().getContextClassLoader();
@@ -441,40 +443,5 @@ public class MinterServiceTest {
         // save and close
         prop.store(output, "");
         output.close();
-
     }
-
-    /**
-     * Read a given properties file and return its values in the form of a
-     * DefaultSetting object
-     *
-     * @return DefaultSetting object with read values
-     * @throws IOException Thrown when the file cannot be found
-     */
-    private DefaultSetting readPropertiesFile(String filename) throws IOException {
-        Properties prop = new Properties();
-        ClassLoader loader = Thread.currentThread().getContextClassLoader();
-        InputStream input = loader.getResourceAsStream(filename);
-
-        DefaultSetting setting = new DefaultSetting();
-
-        // load a properties file
-        prop.load(input);
-
-        // get the property value, store it, and return it
-        setting.setPrepend(prop.getProperty("prepend"));
-        setting.setPrefix(prop.getProperty("prefix"));
-        setting.setCacheSize(Long.parseLong(prop.getProperty("cacheSize")));
-        setting.setCharMap(prop.getProperty("charMap"));
-        setting.setTokenType(Token.valueOf(prop.getProperty("tokenType")));
-        setting.setRootLength(Integer.parseInt(prop.getProperty("rootLength")));
-        setting.setSansVowels(Boolean.parseBoolean(prop.getProperty("sansVowel")));
-        setting.setAuto(Boolean.parseBoolean(prop.getProperty("auto")));
-        setting.setRandom(Boolean.parseBoolean(prop.getProperty("random")));
-
-        // close and return
-        input.close();
-        return setting;
-    }
-
 }

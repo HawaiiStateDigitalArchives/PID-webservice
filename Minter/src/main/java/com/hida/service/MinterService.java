@@ -19,7 +19,6 @@ package com.hida.service;
 
 import com.hida.repositories.DefaultSettingRepository;
 import com.hida.repositories.PidRepository;
-import com.hida.model.Token;
 import com.hida.repositories.UsedSettingRepository;
 import com.hida.model.AutoIdGenerator;
 import com.hida.model.CustomIdGenerator;
@@ -28,20 +27,15 @@ import com.hida.model.Pid;
 import com.hida.model.IdGenerator;
 import com.hida.model.NotEnoughPermutationsException;
 import com.hida.model.UsedSetting;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.Properties;
 import java.util.Set;
 import java.util.LinkedHashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,6 +57,7 @@ public class MinterService {
     /**
      * Default setting values stored in resources folder
      */
+    @Value("${defaultSetting.path}")
     private String defaultSettingPath_ = "DefaultSetting.properties";
 
     @Autowired
@@ -73,6 +68,9 @@ public class MinterService {
 
     @Autowired
     private DefaultSettingRepository defaultSettingRepo_;
+
+    @Autowired
+    private PropertiesLoaderService propertiesService_;
 
     private ArrayList<Pid> cachedPid_;
 
@@ -309,6 +307,7 @@ public class MinterService {
 
         for (Pid pid : list) {
             pidRepo_.save(pid);
+            pid.setName(currentSetting_.getPrepend() + pid.getName());
         }
 
         LOGGER.info("DatabaseUpdated with new pids");
@@ -394,7 +393,7 @@ public class MinterService {
         currentSetting_.setSansVowels(newSetting.isSansVowels());
 
         // record Default Setting values into properties file
-        writeToPropertiesFile(defaultSettingPath_, newSetting);
+        propertiesService_.writeToPropertiesFile(defaultSettingPath_, newSetting);
     }
 
     /**
@@ -407,7 +406,7 @@ public class MinterService {
         storedSetting_ = defaultSettingRepo_.findCurrentDefaultSetting();
         if (storedSetting_ == null) {
             // read default values stored in properties file and save it
-            storedSetting_ = readPropertiesFile(defaultSettingPath_);
+            storedSetting_ = propertiesService_.readPropertiesFile(defaultSettingPath_);
             defaultSettingRepo_.save(storedSetting_);
         }
     }
@@ -415,71 +414,6 @@ public class MinterService {
     public DefaultSetting getStoredSetting() {
 
         return storedSetting_;
-    }
-
-    /**
-     * Read a given properties file and return its values in the form of a
-     * DefaultSetting object
-     *
-     * @return DefaultSetting object with read values
-     * @throws IOException Thrown when the file cannot be found
-     */
-    private DefaultSetting readPropertiesFile(String filename) throws IOException {
-        Properties prop = new Properties();
-        ClassLoader loader = Thread.currentThread().getContextClassLoader();
-        InputStream input = loader.getResourceAsStream(filename);
-
-        DefaultSetting setting = new DefaultSetting();
-
-        // load a properties file
-        prop.load(input);
-
-        // get the property value, store it, and return it
-        setting.setPrepend(prop.getProperty("prepend"));
-        setting.setPrefix(prop.getProperty("prefix"));
-        setting.setCacheSize(Long.parseLong(prop.getProperty("cacheSize")));
-        setting.setCharMap(prop.getProperty("charMap"));
-        setting.setTokenType(Token.valueOf(prop.getProperty("tokenType")));
-        setting.setRootLength(Integer.parseInt(prop.getProperty("rootLength")));
-        setting.setSansVowels(Boolean.parseBoolean(prop.getProperty("sansVowel")));
-        setting.setAuto(Boolean.parseBoolean(prop.getProperty("auto")));
-        setting.setRandom(Boolean.parseBoolean(prop.getProperty("random")));
-
-        // close and return
-        input.close();
-        return setting;
-    }
-
-    /**
-     * Writes to a given properties file, updating its key-value pairs using the
-     * values stored in the setting parameter. If the file does not exist it is
-     * created.
-     *
-     * @param setting The setting whose value needs to be stored
-     * @throws Exception
-     */
-    private void writeToPropertiesFile(String filename, DefaultSetting setting)
-            throws Exception {
-        Properties prop = new Properties();
-        ClassLoader loader = Thread.currentThread().getContextClassLoader();
-        URL url = loader.getResource(filename);
-        File file = new File(url.toURI());
-        OutputStream output = new FileOutputStream(file);
-
-        // set the properties value
-        prop.setProperty("prepend", setting.getPrepend());
-        prop.setProperty("prefix", setting.getPrefix());
-        prop.setProperty("cacheSize", setting.getCacheSize() + "");
-        prop.setProperty("charMap", setting.getCharMap());
-        prop.setProperty("rootLength", setting.getRootLength() + "");
-        prop.setProperty("tokenType", setting.getTokenType() + "");
-        prop.setProperty("sansVowel", setting.isSansVowels() + "");
-        prop.setProperty("auto", setting.isAuto() + "");
-        prop.setProperty("random", setting.isRandom() + "");
-
-        // save and close
-        prop.store(output, "");
-        output.close();
     }
 
     public long getLastSequentialAmount() {
