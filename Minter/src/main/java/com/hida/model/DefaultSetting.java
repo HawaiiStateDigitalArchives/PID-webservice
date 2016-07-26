@@ -71,6 +71,23 @@ public class DefaultSetting extends Setting {
 
     }
 
+    /**
+     * Copy constructor
+     *
+     * @param setting the values to copy
+     */
+    public DefaultSetting(DefaultSetting setting) {
+        this.setPrepend(setting.getPrepend());
+        this.setPrefix(setting.getPrefix());
+        this.setCacheSize(setting.getCacheSize());
+        this.setTokenType(setting.getTokenType());
+        this.setCharMap(setting.getCharMap());
+        this.setRootLength(setting.getRootLength());
+        this.setSansVowels(setting.isSansVowels());
+        this.setAuto(setting.isAuto());
+        this.setRandom(setting.isRandom());
+    }
+
     @Override
     public int hashCode() {
         return Objects.hash(this.getPrepend(),
@@ -89,9 +106,9 @@ public class DefaultSetting extends Setting {
         if (!(obj instanceof DefaultSetting)) {
             return false;
         }
-        
+
         final DefaultSetting other = (DefaultSetting) obj;
-        
+
         return Objects.equals(this.getPrepend(), other.getPrepend())
                 && Objects.equals(this.getPrefix(), other.getPrefix())
                 && Objects.equals(this.getRootLength(), other.getRootLength())

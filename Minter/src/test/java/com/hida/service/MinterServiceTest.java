@@ -17,8 +17,8 @@
  */
 package com.hida.service;
 
+import com.hida.configuration.RepositoryConfiguration;
 import com.hida.repositories.DefaultSettingRepository;
-import com.hida.repositories.PidRepository;
 import com.hida.repositories.UsedSettingRepository;
 import com.hida.model.DefaultSetting;
 import com.hida.model.NotEnoughPermutationsException;
@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
+import java.util.LinkedHashSet;
 import java.util.Properties;
 import java.util.Set;
 import org.mockito.Mock;
@@ -38,16 +39,25 @@ import org.mockito.InjectMocks;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyInt;
+import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.MockitoAnnotations;
+import org.springframework.boot.test.IntegrationTest;
+import org.springframework.boot.test.SpringApplicationConfiguration;
+import org.springframework.test.context.TestExecutionListeners;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.support.DependencyInjectionTestExecutionListener;
+import org.springframework.test.context.support.DirtiesContextTestExecutionListener;
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.springframework.test.context.web.WebAppConfiguration;
 import org.testng.Assert;
 import org.testng.annotations.AfterTest;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
@@ -55,7 +65,14 @@ import org.testng.annotations.Test;
  *
  * @author lruffin
  */
-public class MinterServiceTest {
+@WebAppConfiguration
+@IntegrationTest
+@SpringApplicationConfiguration(classes = {RepositoryConfiguration.class})
+@TestPropertySource(locations = "classpath:testConfig.properties")
+@TestExecutionListeners(inheritListeners = false, listeners = {
+    DependencyInjectionTestExecutionListener.class,
+    DirtiesContextTestExecutionListener.class})
+public class MinterServiceTest extends AbstractTestNGSpringContextTests {
 
     /**
      * Default setting values stored in resources folder
@@ -66,80 +83,43 @@ public class MinterServiceTest {
     private DefaultSettingRepository defaultSettingRepo_;
 
     @Mock
-    private PidRepository pidRepo_;
+    private GeneratorService genService_;
 
     @Mock
     private UsedSettingRepository usedSettingRepo_;
 
     @InjectMocks
-    private MinterService minterService_;
-
-    /**
-     * Sets up Mockito
-     *
-     * @throws Exception
-     */
-    @BeforeClass
-    public void setUpClass() throws Exception {
+    private MinterService minterService_;   
+    
+    
+    
+    @BeforeMethod
+    public void setUpMethod(){
         MockitoAnnotations.initMocks(this);
-        minterService_.setDefaultSettingPath(TEST_FILE);
-        minterService_.initializeStoredSetting();
-    }
-
-    /**
-     * Test the various mint settings (auto/random and random/sequential)
-     *
-     * @return An array of values
-     */
-    @DataProvider(name = "mintSettings")
-    public Object[][] mintSettings() {
-        return new Object[][]{
-            {true, true},
-            {true, false},
-            {false, true},
-            {false, false}
-        };
-    }
+        when(genService_.getMaxPermutation(getSampleDefaultSetting())).thenCallRealMethod();
+    }   
 
     /**
      * Tests the MinterService by assuming that the settings aren't currently
      * stored in the database
-     *
-     * @param isRandom Determines if the PIDs are created randomly or
-     * sequentially
-     * @param isAuto Determines which generator, either Auto or Custom, will be
-     * used
      */
-    @Test(dataProvider = "mintSettings")
-    public void testMintWithNewUsedSetting(boolean isRandom, boolean isAuto) throws Exception {
-        // retrieve a sample DefaultSetting entity
-        DefaultSetting testSetting = this.sampleDefaultSetting();
-        testSetting.setAuto(isAuto);
-        testSetting.setRandom(isRandom);
+    @Test
+    public void testMintWithNewUsedSetting() throws Exception {
+        Set<Pid> sampleSet = getSampleSet();
+        when(genService_.generatePids(any(DefaultSetting.class), anyLong()))
+                .thenReturn(sampleSet);
 
-        // assume that any Pids created aren't already persisted and pretend to persist them
-        when(pidRepo_.findOne(any(String.class))).thenReturn(null);
-        when(pidRepo_.save(any(Pid.class))).thenReturn(null);
+        // don't do anything when a save attempt has been made
+        setSaveBehavior();
+        setFindUsedSettingBehavior(null);
 
-        // assume the UsedSetting isn't persisted and pretend to persist it
-        when(usedSettingRepo_.findUsedSetting(any(String.class),
-                any(Token.class),
-                any(String.class),
-                anyInt(),
-                anyBoolean())).thenReturn(null);
+        // start behavior
+        minterService_.mint(sampleSet.size(), getSampleDefaultSetting());
 
-        when(usedSettingRepo_.save(any(UsedSetting.class))).thenReturn(null);
-
-        // retrieve a sample DefaultSetting entity
-        int actualAmount = 5;
-        Set<Pid> testSet = minterService_.mint(actualAmount, testSetting);
-
-        // test behavior
-        Assert.assertEquals(actualAmount, testSet.size());
-        verify(pidRepo_, atLeast(actualAmount)).findOne(any(String.class));
-        verify(pidRepo_, atLeast(actualAmount)).save(any(Pid.class));
-        verify(usedSettingRepo_, atLeastOnce()).save(any(UsedSetting.class));
-        verify(usedSettingRepo_, atLeastOnce()).findUsedSetting(any(String.class),
+        // verify that save attempts have been made
+        verify(genService_, atLeast(sampleSet.size())).savePid(any(Pid.class));
+        verify(usedSettingRepo_, times(1)).save(any(UsedSetting.class));
+        verify(usedSettingRepo_, times(1)).findUsedSetting(any(String.class),
                 any(Token.class),
                 any(String.class),
                 anyInt(),
@@ -148,191 +128,64 @@ public class MinterServiceTest {
 
     /**
      * Tests the MinterService under the scenario where UsedSetting entity with
-     * matching parameters already exist.
-     *
-     * @param isRandom Determines if the PIDs are created randomly or
-     * sequentially
-     * @param isAuto Determines which generator, either Auto or Custom, will be
-     * used
+     * matching parameters already exist.     
      */
-    @Test(dataProvider = "mintSettings")
-    public void testMintWithOldUsedSetting(boolean isAuto, boolean isRandom) throws Exception {
-        // retrieve a sample DefaultSetting entity
-        DefaultSetting testSetting = this.sampleDefaultSetting();
-        testSetting.setAuto(isAuto);
-        testSetting.setRandom(isRandom);
+    @Test
+    public void testMintWithOldUsedSetting() throws Exception {
+        Set<Pid> sampleSet = getSampleSet();
+        UsedSetting sampleUsedSetting = getSampleUsedSetting();
+        DefaultSetting sampleDefaultSetting = getSampleDefaultSetting();
+        
+        // set up behavior
+        when(genService_.generatePids(any(DefaultSetting.class), anyLong())).thenReturn(sampleSet);
+        setSaveBehavior();
+        setFindUsedSettingBehavior(sampleUsedSetting);
+        
+        // record previous amount
+        long oldAmount = sampleUsedSetting.getAmount();      
 
-        // get a sample UsedSetting entity
-        UsedSetting usedSetting = getSampleUsedSetting();
+        // start behavior
+        long max = genService_.getMaxPermutation(sampleDefaultSetting);
+        long mintAmount = max - oldAmount;
+        minterService_.mint(mintAmount, getSampleDefaultSetting());
 
-        // assume that any Pids created aren't already persisted and pretend to persist them
-        when(pidRepo_.findOne(any(String.class))).thenReturn(null);
-        when(pidRepo_.save(any(Pid.class))).thenReturn(null);
-
-        // assume the UsedSetting isn't persisted and pretend to persist it        
-        when(usedSettingRepo_.findUsedSetting(any(String.class),
-                any(Token.class),
-                any(String.class),
-                anyInt(),
-                anyBoolean())).thenReturn(usedSetting);
-        when(usedSettingRepo_.save(usedSetting)).thenReturn(null);
-
-        int preTestAmount = (int) usedSetting.getAmount();
-        int actualAmount = 5;
-        int postTestAmount = actualAmount + preTestAmount;
-        Set<Pid> testSet = minterService_.mint(actualAmount, testSetting);
-
-        // test behavior
-        Assert.assertEquals(actualAmount, testSet.size());
-        Assert.assertEquals(postTestAmount, usedSetting.getAmount());
-        verify(pidRepo_, atLeast(actualAmount)).findOne(any(String.class));
-        verify(pidRepo_, atLeast(actualAmount)).save(any(Pid.class));
-        verify(usedSettingRepo_, never()).save(usedSetting);
-        verify(usedSettingRepo_, atLeastOnce()).findUsedSetting(any(String.class),
+        // verify that save attempts have been made
+        verify(genService_, atLeast(sampleSet.size())).savePid(any(Pid.class));
+        verify(usedSettingRepo_, times(1)).findUsedSetting(any(String.class),
                 any(Token.class),
                 any(String.class),
                 anyInt(),
                 anyBoolean());
+        
+        // the new amount should be the previous amount + the requested amount
+        Assert.assertEquals(sampleUsedSetting.getAmount(), mintAmount + oldAmount);
     }
-
-    /**
-     * Tests to ensure that the whenever the stored default setting is used then
-     * the requested amount is saved and used as a starting value.
-     */
-    @Test
-    public void testMintWithStartingValue() throws Exception {
-        // retrieve a sample DefaultSetting entity
-        DefaultSetting testSetting = this.sampleDefaultSetting();
-
-        // get a sample UsedSetting entity
-        UsedSetting usedSetting = getSampleUsedSetting();
-
-        // assume that any Pids created aren't already persisted and pretend to persist them
-        when(pidRepo_.findOne(any(String.class))).thenReturn(null);
-        when(pidRepo_.save(any(Pid.class))).thenReturn(null);
-
-        // assume the UsedSetting isn't persisted and pretend to persist it        
-        when(usedSettingRepo_.findUsedSetting(any(String.class),
-                any(Token.class),
-                any(String.class),
-                anyInt(),
-                anyBoolean())).thenReturn(usedSetting);
-        when(usedSettingRepo_.save(any(UsedSetting.class))).thenReturn(null);
-
-        // check to see if all the Pids were created
-        long amount = 5;
-        long lastAmount = minterService_.getLastSequentialAmount();
-        Set<Pid> testSet = minterService_.mint(amount, testSetting);
-
-        Assert.assertEquals(minterService_.getLastSequentialAmount(), (lastAmount + amount) % 10);
+    
+    @Test(expectedExceptions = NotEnoughPermutationsException.class)
+    public void testExceptionThroughUsedSetting() throws Exception {
+        UsedSetting sampleUsedSetting = getSampleUsedSetting();
+        Set<Pid> sampleSet = getSampleSet();
+        when(genService_.generatePids(any(DefaultSetting.class), anyLong()))
+                .thenReturn(sampleSet);
+        
+        // pretend a usedSetting was found
+        setFindUsedSettingBehavior(sampleUsedSetting);
+        
+        // try to mint an impossible amount
+        minterService_.mint(sampleSet.size(), getSampleDefaultSetting());        
     }
-
-    /**
-     * Tests the MinterService to ensure that a NotEnoughPermutationsException
-     * is thrown whenever the amount retrieved from FindUsedSetting is less than
-     * the requested amount.
-     *
-     * @param isRandom Determines if the PIDs are created randomly or
-     * sequentially
-     * @param isAuto Determines which generator, either Auto or Custom, will be
-     * used
-     */
-    @Test(expectedExceptions = NotEnoughPermutationsException.class, dataProvider = "mintSettings")
-    public void testMintNotEnoughPermutationsExceptionInFindUsedSetting(
-            boolean isAuto, boolean isRandom) throws Exception {
-        // retrieve a sample DefaultSetting entity
-        DefaultSetting testSetting = this.sampleDefaultSetting();
-        testSetting.setAuto(isAuto);
-        testSetting.setRandom(isRandom);
-
-        // get a sample UsedSetting entity
-        UsedSetting usedSetting = getSampleUsedSetting();
-
-        // assume that any Pids created aren't already persisted and pretend to persist them
-        when(pidRepo_.findOne(any(String.class))).thenReturn(null);
-        when(pidRepo_.save(any(Pid.class))).thenReturn(null);
-
-        // pretend to find and retrieve variable usedSetting
-        when(usedSettingRepo_.findUsedSetting(any(String.class),
-                any(Token.class),
-                any(String.class),
-                anyInt(),
-                anyBoolean())).thenReturn(usedSetting);
-        when(usedSettingRepo_.findOne(anyInt())).thenReturn(usedSetting);
-
-        // try to mint an amount greater than what is available
-        Set<Pid> testSet = minterService_.mint(6, testSetting);
+    
+    @Test(expectedExceptions = NotEnoughPermutationsException.class)
+    public void testExceptionForImpossibleRequest() throws Exception {
+        Set<Pid> sampleSet = getSampleSet();
+        when(genService_.generatePids(any(DefaultSetting.class), anyLong()))
+                .thenReturn(sampleSet);
+        long max = genService_.getMaxPermutation(getSampleDefaultSetting());
+        
+        // try to mint an impossible amount
+        minterService_.mint(max + 1, getSampleDefaultSetting());        
     }
-
-    /**
-     * Tests the MinterService to ensure that a NotEnoughPermutationsException
-     * is thrown whenever the requested amount of Pids to mint exceeds the
-     * possible number of permutations.
-     *
-     * @param isRandom Determines if the PIDs are created randomly or
-     * sequentially
-     * @param isAuto Determines which generator, either Auto or Custom, will be
-     * used
-     */
-    @Test(expectedExceptions = NotEnoughPermutationsException.class, dataProvider = "mintSettings")
-    public void testMintNotEnoughPermutationsExceptionInCalculatePermutations(
-            boolean isAuto, boolean isRandom) throws Exception {
-        // retrieve a sample DefaultSetting entity
-        DefaultSetting testSetting = this.sampleDefaultSetting();
-        testSetting.setAuto(isAuto);
-        testSetting.setRandom(isRandom);
-
-        // assume that any Pids created aren't already persisted and pretend to persist them
-        when(pidRepo_.findOne(any(String.class))).thenReturn(null);
-        when(pidRepo_.save(any(Pid.class))).thenReturn(null);
-
-        // assume that UsedSetting entity with the relevant parameters does not exist
-        when(usedSettingRepo_.findUsedSetting(any(String.class),
-                any(Token.class),
-                any(String.class),
-                anyInt(),
-                anyBoolean())).thenReturn(null);
-        when(pidRepo_.save(any(Pid.class))).thenReturn(null);
-
-        // try to mint an amount greater than what is possible
-        Set<Pid> testSet = minterService_.mint(11, testSetting);
-    }
-
-    /**
-     * Tests the MinterService to ensure that a NotEnoughPermutationsException
-     * is thrown whenever it is no longer possible to 'roll' Pids. This is
-     * important because there may be different settings that may have created
-     * Pids that could match the fields of the currently used setting.
-     *
-     * @param isRandom Determines if the PIDs are created randomly or
-     * sequentially
-     * @param isAuto Determines which generator, either Auto or Custom, will be
-     * used
-     */
-    @Test(expectedExceptions = NotEnoughPermutationsException.class, dataProvider = "mintSettings")
-    public void testMintNotEnoughPermutationExceptionInRollId(boolean isAuto, boolean isRandom)
-            throws Exception {
-        // retrieve a sample DefaultSetting entity
-        DefaultSetting testSetting = this.sampleDefaultSetting();
-        testSetting.setAuto(isAuto);
-        testSetting.setRandom(isRandom);
-
-        // pretend any Pid with the name "0" is the only Pid that exists
-        Pid sentinelPid = new Pid("1");
-        when(pidRepo_.findOne(any(String.class))).thenReturn(sentinelPid);
-        when(pidRepo_.findOne("0")).thenReturn(null);
-
-        // assume that UsedSetting entity with the relevant parameters does not exist
-        when(usedSettingRepo_.findUsedSetting(any(String.class),
-                any(Token.class),
-                any(String.class),
-                anyInt(),
-                anyBoolean())).thenReturn(null);
-        when(usedSettingRepo_.save(any(UsedSetting.class))).thenReturn(null);
-
-        // try to mint an amount greater than what is possible
-        Set<Pid> testSet = minterService_.mint(10, testSetting);
-    }
+        
 
     /**
      * Test in MinterService that ensures that the CurrentSetting is sought
@@ -340,7 +193,7 @@ public class MinterServiceTest {
      */
     @Test
     public void testInitializeStoredSetting() throws Exception {
-        DefaultSetting testSetting = sampleDefaultSetting();
+        DefaultSetting testSetting = getSampleDefaultSetting();
         when(defaultSettingRepo_.findCurrentDefaultSetting()).thenReturn(testSetting);
 
         minterService_.initializeStoredSetting();
@@ -354,10 +207,12 @@ public class MinterServiceTest {
      */
     @Test
     public void testGetCurrentSettingWithoutExistingDefaultSetting() throws Exception {
-        DefaultSetting testSetting = sampleDefaultSetting();
-        when(defaultSettingRepo_.findCurrentDefaultSetting()).thenReturn(null);
+        DefaultSetting testSetting = getSampleDefaultSetting();
+        when(defaultSettingRepo_.findCurrentDefaultSetting()).thenReturn(null);  
+        
+        minterService_.initializeStoredSetting();
         DefaultSetting actualSetting = minterService_.getStoredSetting();
-
+                
         Assert.assertEquals(actualSetting.getCharMap(), testSetting.getCharMap());
         Assert.assertEquals(actualSetting.getPrefix(), testSetting.getPrefix());
         Assert.assertEquals(actualSetting.getPrepend(), testSetting.getPrepend());
@@ -374,17 +229,26 @@ public class MinterServiceTest {
      */
     @Test
     public void testUpdateCurrentSetting() throws Exception {
-        DefaultSetting testSetting = sampleDefaultSetting();
+        DefaultSetting testSetting = getSampleDefaultSetting();
         when(defaultSettingRepo_.findCurrentDefaultSetting()).thenReturn(testSetting);
 
-        minterService_.updateCurrentSetting(testSetting);
+        minterService_.updateStoredSetting(testSetting);
         verify(defaultSettingRepo_, atLeastOnce()).findCurrentDefaultSetting();
+    }
+   
+    @Test
+    public void testGenerateCache() throws Exception {
+        doNothing().when(genService_).generateCache(any(DefaultSetting.class));
+        
+        minterService_.generateCache();
+        
+        verify(genService_, times(1)).generateCache(any(DefaultSetting.class));        
     }
 
     /**
      * Create a test Default Setting object
      */
-    private DefaultSetting sampleDefaultSetting() {
+    private DefaultSetting getSampleDefaultSetting() {
         return new DefaultSetting("", // prepend
                 "", // prefix
                 500, // cacheSize
@@ -408,6 +272,30 @@ public class MinterServiceTest {
                 1, // rootlength
                 true, //sans vowels
                 5); // amount
+    }
+
+    private Set<Pid> getSampleSet() {
+        Set<Pid> set = new LinkedHashSet<>();
+
+        for (int i = 0; i < 10; i++) {
+            set.add(new Pid(i + ""));
+        }
+
+        return set;
+    }
+        
+    private void setSaveBehavior(){
+        doNothing().when(genService_).savePid(any(Pid.class));        
+        when(usedSettingRepo_.save(any(UsedSetting.class))).thenReturn(null);
+        when(defaultSettingRepo_.save(any(DefaultSetting.class))).thenReturn(null);
+    }
+    
+    private void setFindUsedSettingBehavior(UsedSetting setting){
+        when(usedSettingRepo_.findUsedSetting(any(String.class),
+                any(Token.class),
+                any(String.class),
+                anyInt(),
+                anyBoolean())).thenReturn(setting);
     }
 
     /**

@@ -314,11 +314,42 @@
 
             </table> 
         </form>
+        
+        <!--SHOW PRESET VALUES-->
+        <br/><br/><br/><br/>
+        <h2 align="center">Metrics</h2>
+        <table id="metrics" cellspacing="5px" cellpadding="5%" align="center" >
+            <!--SET VALUES: Shows preset values within DB.-->
+            <tr id="currentCacheSize">
+                <td align="right">
+                    Current cache size:
+                </td>
+                <td>
+                    <a th:text="${currentCacheSize}"></a>
+                </td>
+            </tr>
+            <tr id="remainingEstimate">
+                <td align="right">
+                    Estimated remaining permutations:
+                </td>
+                <td>
+                    <a th:text="${remainingEstimate}"></a>
+                </td>
+            </tr>
+            <tr id="maxPermutations">
+                <td align="right">
+                    Maximum permutations:
+                </td>
+                <td>
+                    <a th:text="${max}"></a>
+                </td>
+            </tr>
+        </table>
 
         <!--SHOW PRESET VALUES-->
         <br/><br/><br/><br/>
         <h2 align="center">Preset Values</h2>
-        <table id="table2" cellspacing="5px" cellpadding="5%" align="center" >
+        <table id="defaultSettingTable" cellspacing="5px" cellpadding="5%" align="center" >
             <!--SET VALUES: Shows preset values within DB.-->
             <tr id="trpresetprepend">
                 <td align="right">
